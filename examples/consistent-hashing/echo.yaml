@@ -1,0 +1,77 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: &name echo
+  labels:
+    app: *name
+spec:
+  replicas: 10
+  selector:
+    matchLabels:
+      app: *name
+  template:
+    metadata:
+      labels:
+        app: *name
+    spec:
+      containers:
+        - name: *name
+          image: gcr.io/kubernetes-e2e-test-images/echoserver:2.2
+          ports:
+            - containerPort: 8080
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: &name echo
+  labels:
+    app: *name
+spec:
+  type: NodePort
+  ports:
+    - port: 8080
+      name: high
+      protocol: TCP
+      targetPort: 8080
+    - port: 80
+      name: low
+      protocol: TCP
+      targetPort: 8080
+  selector:
+    app: *name
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: echo
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: echo.tapsell.ir
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: echo
+                port:
+                  number: 8080
